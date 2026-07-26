@@ -1,4 +1,3 @@
-[README_FRT_SUITE.md](https://github.com/user-attachments/files/30381753/README_FRT_SUITE.md)
 # 🔐 FRT Red Team Suite - Sistema Completo
 
 Sistema integrado em Python para estudo, teste e defesa de **Family Refresh Token (FRT) Attacks** em Microsoft 365/Azure AD.
