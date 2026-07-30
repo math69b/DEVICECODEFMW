@@ -489,36 +489,3 @@ to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 copies of the Software, and to permit persons to whom the Software is
 furnished to do so, subject to the following conditions:
 ```
-
----
-
-## 👨‍💻 Desenvolvido por
-
-**Andrew Lobo** - Cybersecurity Analyst & Red Teamer  
-Especializado em Microsoft Identity e Azure AD Security
-
----
-
-## 🙏 Agradecimentos
-
-- Secureworks - Pesquisa original do FRT
-- Microsoft - Documentação OAuth 2.0
-- Comunidade de Segurança - Feedback e contribuições
-
----
-
-**Última atualização:** Junho 2026  
-**Versão:** 1.0 - Production Ready
-
----
-
-## 📞 Dúvidas?
-
-```
-1. Consulte o menu (opção 51 - Ver logs)
-2. Verifique este README
-3. Leia DOCUMENTACAO_TECNICA_FRT_ATTACK.md
-4. Contate suporte técnico
-```
-
-**Boa sorte com seus testes!** 🚀
