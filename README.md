@@ -21,7 +21,7 @@ frt_red_team_suite.py (1500+ linhas)
 └─ FRTMenu (Interface completa)
 ```
 
-### Extensões (Optional)
+### Extensões (Opcional)
 ```
 frt_suite_extensions.py (700+ linhas)
 ├─ EmailModule (Enviar emails/phishing)
@@ -193,7 +193,7 @@ Escolha: 40
 ```
 50) Gerar relatório              → Cria report.json
 51) Ver logs                     → Mostra arquivo de logs
-52) Limpar dados                 → Delete TODOS os dados
+52) Limpar dados                 → Apaga TODOS os dados
 99) Sair                         → Encerra programa
 ```
 
