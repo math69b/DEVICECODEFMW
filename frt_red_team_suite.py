@@ -3,7 +3,7 @@
 ╔═════════════════════════════════════════════════════════════════════════╗
 ║          🔐 FRT RED TEAM SUITE v1.2 — SISTEMA PRINCIPAL               ║
 ║   Family Refresh Token Attack Chain — Microsoft Entra ID / Azure AD   ║
-║   Autor: math69b | Tenant: yourdomain.com | Python 3.9+          ║
+║   Python 3.9+                                                          ║
 ║   Melhorias v1.2: TokenVault, Paginação, Background Renewer,          ║
 ║   DM Teams, SharePoint, Calendário, Service Principals,               ║
 ║   Log por Sessão, HTML Rico, --silent/--json-output                   ║
@@ -1370,7 +1370,7 @@ document.querySelectorAll('#'+ti+' tbody tr').forEach(r=>{{r.style.display=r.tex
 # ═══ MENU PRINCIPAL ═══════════════════════════════════════════════════════════
 BANNER = """
 ╔═════════════════════════════════════════════════════════════════════════╗
-║          🔐 FRT RED TEAM SUITE v1.2 — yourdomain.com                ║
+║                  🔐 FRT RED TEAM SUITE v1.2                          ║
 ║   Family Refresh Token Attack Chain | Microsoft Entra ID / Azure AD   ║
 ╚═════════════════════════════════════════════════════════════════════════╝
 """
