@@ -658,10 +658,9 @@ a:hover { text-decoration: underline; }
 <div class="shell">
   <!-- TOP BAR -->
   <header class="topbar">
-    <span class="topbar-badge">CONFIDENTIAL</span>
     <span class="topbar-badge teal">v1.2</span>
     <span class="topbar-title">FRT Attack Chain — Documentação Técnica & Mitigação</span>
-    <span class="topbar-meta">yourdomain.com · 2026-08-06</span>
+    <span class="topbar-meta">2026-08-06</span>
   </header>
 
   <!-- SIDEBAR NAV -->
@@ -717,8 +716,8 @@ a:hover { text-decoration: underline; }
       <div class="meta-row" style="margin-top:20px">
         <div class="meta-chip"><span class="dot dot-red"></span>CVSS 9.8 CRITICAL</div>
         <div class="meta-chip"><span class="dot dot-amber"></span>Microsoft Entra ID / Azure AD</div>
-        <div class="meta-chip"><span class="dot dot-blue"></span>Tenant: yourdomain.com</div>
-        <div class="meta-chip"><span class="dot dot-teal"></span>Autor: math69b</div>
+        <div class="meta-chip"><span class="dot dot-blue"></span>Microsoft Entra ID / Azure AD</div>
+        <div class="meta-chip"><span class="dot dot-teal"></span>Red Team Research</div>
         <div class="meta-chip"><span class="dot dot-green"></span>Versão 1.2 · Ago 2026</div>
       </div>
 
@@ -740,7 +739,7 @@ a:hover { text-decoration: underline; }
       <p>O ataque não explora falha de software: ele abusa de um comportamento <em>by design</em> do mecanismo de token minting. Um FRT capturado via phishing permanece válido por até <strong>90 dias</strong>, dando ao atacante acesso persistente e silencioso ao tenant.</p>
 
       <div class="callout red">
-        <div class="callout-label">Impacto no ambiente yourdomain.com</div>
+        <div class="callout-label">Impacto demonstrado em ambiente de teste</div>
         Com um único token capturado, o FRT Suite demonstrou acesso a: enumeração de usuários e Global Admins, leitura de emails via Exchange, listagem de arquivos OneDrive, acesso a Teams — tudo sem nova autenticação e sem alertas de MFA.
       </div>
     </section>
@@ -1457,18 +1456,18 @@ POST https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token
 <span class="c-kw">Connect-MgGraph</span> -Scopes <span class="c-str">"User.ReadWrite.All"</span>, <span class="c-str">"Directory.ReadWrite.All"</span>
 
 <span class="c-comment"># 2. Revogar todos os refresh tokens do usuário</span>
-<span class="c-kw">Revoke-MgUserSignInSession</span> -UserId <span class="c-str">"andrew.testes@yourdomain.com"</span>
+<span class="c-kw">Revoke-MgUserSignInSession</span> -UserId <span class="c-str">"usuario@seudominio.com"</span>
 
 <span class="c-comment"># 3. Confirmar revogação</span>
-<span class="c-kw">Get-MgUser</span> -UserId <span class="c-str">"andrew.testes@yourdomain.com"</span> `
+<span class="c-kw">Get-MgUser</span> -UserId <span class="c-str">"usuario@seudominio.com"</span> `
     -Property <span class="c-str">"SignInSessionsValidFromDateTime"</span> | <span class="c-kw">Select</span> SignInSessionsValidFromDateTime
 
 <span class="c-comment"># 4. Resetar senha (forçar logout de todas as sessões)</span>
-<span class="c-kw">Update-MgUser</span> -UserId <span class="c-str">"andrew.testes@yourdomain.com"</span> `
+<span class="c-kw">Update-MgUser</span> -UserId <span class="c-str">"usuario@seudominio.com"</span> `
     -PasswordProfile @{<span class="c-key">ForceChangePasswordNextSignIn</span>=<span class="c-val">$true</span>; <span class="c-key">Password</span>=<span class="c-str">"[nova-senha]"</span>}
 
 <span class="c-comment"># 5. Verificar apps com permissões delegadas (possível backdoor)</span>
-<span class="c-kw">Get-MgUserOauth2PermissionGrant</span> -UserId <span class="c-str">"andrew.testes@yourdomain.com"</span></div>
+<span class="c-kw">Get-MgUserOauth2PermissionGrant</span> -UserId <span class="c-str">"usuario@seudominio.com"</span></div>
 
       <h3>Checklist Pós-Revogação</h3>
       <ul class="ioc-list">
@@ -1539,9 +1538,9 @@ POST https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token
       </ul>
 
       <div style="margin-top:48px; padding-top:24px; border-top:1px solid var(--border-faint); font-family:var(--mono); font-size:11px; color:var(--text-faint); line-height:2">
-        Documento gerado por math69b · Red Team &amp; Security · yourdomain.com<br>
-        Versão 1.2 · 2026-08-06 · Uso interno e autorizado<br>
-        Baseado em FRT Red Team Suite v1.2 · python frt_red_team_suite.py
+        FRT Red Team Suite v1.2 · Red Team Research<br>
+        Versão 1.2 · 2026-08-06 · Para uso educacional e pentesting autorizado<br>
+        python frt_red_team_suite.py
       </div>
     </section>
 
