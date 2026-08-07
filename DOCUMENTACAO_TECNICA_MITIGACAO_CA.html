@@ -1,0 +1,1568 @@
+
+<title>FRT Attack Chain — Documentação Técnica & Mitigação</title>
+<style>
+/* ── TOKENS ── */
+:root {
+  --bg:           #0b0f1a;
+  --bg-raised:    #141929;
+  --bg-card:      #1c2438;
+  --border:       #263050;
+  --border-faint: #1e2840;
+
+  --text:         #dde4f0;
+  --text-muted:   #6b7fa8;
+  --text-faint:   #3d4f70;
+
+  --red:          #f04e5e;
+  --red-dim:      rgba(240,78,94,.12);
+  --teal:         #00c9a7;
+  --teal-dim:     rgba(0,201,167,.10);
+  --amber:        #f5a623;
+  --amber-dim:    rgba(245,166,35,.12);
+  --blue:         #5b9cf6;
+  --blue-dim:     rgba(91,156,246,.12);
+  --green:        #3dd68c;
+  --green-dim:    rgba(61,214,140,.10);
+
+  --mono: 'SF Mono', 'Cascadia Code', 'Fira Code', Consolas, 'Courier New', monospace;
+  --sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+  --radius: 6px;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg:           #f0f4fb;
+    --bg-raised:    #ffffff;
+    --bg-card:      #ffffff;
+    --border:       #d0d9ec;
+    --border-faint: #e4eaf5;
+    --text:         #1a2440;
+    --text-muted:   #5a6a8a;
+    --text-faint:   #aab4cc;
+    --red-dim:      rgba(220,50,65,.08);
+    --teal-dim:     rgba(0,160,130,.08);
+    --amber-dim:    rgba(200,130,0,.08);
+    --blue-dim:     rgba(50,100,210,.08);
+    --green-dim:    rgba(30,160,90,.08);
+  }
+}
+:root[data-theme="dark"] {
+  --bg:           #0b0f1a;
+  --bg-raised:    #141929;
+  --bg-card:      #1c2438;
+  --border:       #263050;
+  --border-faint: #1e2840;
+  --text:         #dde4f0;
+  --text-muted:   #6b7fa8;
+  --text-faint:   #3d4f70;
+  --red-dim:      rgba(240,78,94,.12);
+  --teal-dim:     rgba(0,201,167,.10);
+  --amber-dim:    rgba(245,166,35,.12);
+  --blue-dim:     rgba(91,156,246,.12);
+  --green-dim:    rgba(61,214,140,.10);
+}
+:root[data-theme="light"] {
+  --bg:           #f0f4fb;
+  --bg-raised:    #ffffff;
+  --bg-card:      #ffffff;
+  --border:       #d0d9ec;
+  --border-faint: #e4eaf5;
+  --text:         #1a2440;
+  --text-muted:   #5a6a8a;
+  --text-faint:   #aab4cc;
+  --red-dim:      rgba(220,50,65,.08);
+  --teal-dim:     rgba(0,160,130,.08);
+  --amber-dim:    rgba(200,130,0,.08);
+  --blue-dim:     rgba(50,100,210,.08);
+  --green-dim:    rgba(30,160,90,.08);
+}
+
+/* ── RESET ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.7;
+  min-height: 100vh;
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+/* ── LAYOUT ── */
+.shell {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  grid-template-rows: auto 1fr;
+  max-width: 1280px;
+  margin: 0 auto;
+  min-height: 100vh;
+}
+.topbar {
+  grid-column: 1 / -1;
+  background: var(--bg-raised);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 32px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.topbar-badge {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .05em;
+  background: var(--red-dim);
+  color: var(--red);
+  border: 1px solid var(--red);
+  border-radius: 3px;
+  padding: 2px 8px;
+  text-transform: uppercase;
+}
+.topbar-badge.teal {
+  background: var(--teal-dim);
+  color: var(--teal);
+  border-color: var(--teal);
+}
+.topbar-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  flex: 1;
+}
+.topbar-meta {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* ── SIDEBAR ── */
+.sidebar {
+  border-right: 1px solid var(--border-faint);
+  padding: 28px 0 60px;
+  position: sticky;
+  top: 53px;
+  height: calc(100vh - 53px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+.sidebar-section {
+  padding: 8px 20px 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  font-family: var(--mono);
+  margin-top: 12px;
+}
+.sidebar a {
+  display: block;
+  padding: 5px 20px 5px 24px;
+  font-size: 13px;
+  color: var(--text-muted);
+  text-decoration: none;
+  border-left: 2px solid transparent;
+  transition: color .15s, border-color .15s;
+  line-height: 1.4;
+}
+.sidebar a:hover { color: var(--text); }
+.sidebar a.active { color: var(--teal); border-left-color: var(--teal); }
+.sidebar a.sub { padding-left: 36px; font-size: 12px; }
+
+/* ── MAIN CONTENT ── */
+main {
+  padding: 40px 48px 80px;
+  max-width: 860px;
+  overflow-x: hidden;
+}
+
+/* ── TYPOGRAPHY ── */
+h1 {
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -.02em;
+  line-height: 1.2;
+  margin-bottom: 8px;
+  text-wrap: balance;
+}
+h1 .accent-red { color: var(--red); }
+h1 .accent-teal { color: var(--teal); }
+
+h2 {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -.01em;
+  margin-top: 56px;
+  margin-bottom: 20px;
+  padding-top: 56px;
+  border-top: 1px solid var(--border-faint);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-wrap: balance;
+}
+h2:first-of-type { margin-top: 0; padding-top: 0; border-top: none; }
+
+h3 {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: .01em;
+  margin: 28px 0 10px;
+  color: var(--text);
+  text-wrap: balance;
+}
+h4 {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  margin: 18px 0 6px;
+  font-family: var(--mono);
+}
+p { margin-bottom: 14px; color: var(--text); }
+p:last-child { margin-bottom: 0; }
+strong { font-weight: 700; color: var(--text); }
+a { color: var(--blue); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* ── SECTION EYEBROW ── */
+.eyebrow {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-bottom: 40px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.eyebrow::before { content: ''; display: block; width: 24px; height: 1px; background: var(--text-faint); }
+
+.section-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+.icon-red { background: var(--red-dim); }
+.icon-teal { background: var(--teal-dim); }
+.icon-amber { background: var(--amber-dim); }
+.icon-blue { background: var(--blue-dim); }
+
+/* ── META ROW ── */
+.meta-row {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-bottom: 32px;
+}
+.meta-chip {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 5px 12px;
+  color: var(--text-muted);
+}
+.meta-chip .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.dot-red   { background: var(--red); box-shadow: 0 0 6px var(--red); }
+.dot-teal  { background: var(--teal); }
+.dot-amber { background: var(--amber); }
+.dot-blue  { background: var(--blue); }
+.dot-green { background: var(--green); }
+
+/* ── CALLOUT ── */
+.callout {
+  border-left: 3px solid var(--border);
+  background: var(--bg-card);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  padding: 14px 18px;
+  margin: 20px 0;
+  font-size: 14px;
+}
+.callout.red   { border-left-color: var(--red);   background: var(--red-dim); }
+.callout.teal  { border-left-color: var(--teal);  background: var(--teal-dim); }
+.callout.amber { border-left-color: var(--amber); background: var(--amber-dim); }
+.callout.blue  { border-left-color: var(--blue);  background: var(--blue-dim); }
+.callout .callout-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.callout.red   .callout-label { color: var(--red); }
+.callout.teal  .callout-label { color: var(--teal); }
+.callout.amber .callout-label { color: var(--amber); }
+.callout.blue  .callout-label { color: var(--blue); }
+
+/* ── CODE BLOCK ── */
+.code-block {
+  background: #08101e;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.65;
+  overflow-x: auto;
+  margin: 14px 0;
+  color: #a9c4eb;
+}
+:root[data-theme="light"] .code-block,
+@media (prefers-color-scheme: light) { .code-block { background: #f6f8fc; color: #334155; } }
+.code-block .c-comment { color: var(--text-faint); }
+.code-block .c-key     { color: var(--teal); }
+.code-block .c-val     { color: var(--amber); }
+.code-block .c-str     { color: var(--green); }
+.code-block .c-kw      { color: var(--blue); }
+.code-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 20px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: var(--radius) var(--radius) 0 0;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.code-header + .code-block {
+  border-radius: 0 0 var(--radius) var(--radius);
+  margin-top: 0;
+}
+.code-label {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 11px;
+  background: var(--bg-raised);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1px 7px;
+}
+
+/* ── ATTACK CHAIN ── */
+.attack-chain {
+  display: flex;
+  gap: 0;
+  margin: 24px 0;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+.phase {
+  flex: 1;
+  min-width: 120px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  padding: 14px 12px;
+  position: relative;
+  text-align: center;
+}
+.phase:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  right: -10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-top: 10px solid transparent;
+  border-bottom: 10px solid transparent;
+  border-left: 10px solid var(--red);
+  z-index: 2;
+}
+.phase:first-child { border-radius: var(--radius) 0 0 var(--radius); }
+.phase:last-child  { border-radius: 0 var(--radius) var(--radius) 0; }
+.phase:not(:last-child) { margin-right: 10px; }
+.phase-n {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--red);
+  font-weight: 700;
+  margin-bottom: 6px;
+  letter-spacing: .08em;
+}
+.phase-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 4px;
+  line-height: 1.3;
+}
+.phase-sub {
+  font-size: 10.5px;
+  color: var(--text-muted);
+  font-family: var(--mono);
+  line-height: 1.3;
+}
+
+/* ── TOKEN HIERARCHY ── */
+.token-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  margin: 16px 0;
+}
+.token-table th {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  padding: 6px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  font-weight: 600;
+}
+.token-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-faint);
+  vertical-align: top;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+.token-table td:first-child {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--blue);
+  white-space: nowrap;
+  font-weight: 600;
+}
+.token-table tr:last-child td { border-bottom: none; }
+.token-table tr:hover td { background: var(--bg-card); }
+.token-table .highlight td:first-child { color: var(--red); }
+
+/* ── FOCI TABLE ── */
+.foci-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 14px 0;
+}
+.foci-item {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+}
+.foci-name { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 3px; }
+.foci-id   { font-family: var(--mono); font-size: 10.5px; color: var(--text-faint); word-break: break-all; }
+
+/* ── POLICY CARDS ── */
+.policy-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin: 16px 0;
+  overflow: hidden;
+}
+.policy-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 20px;
+  background: var(--teal-dim);
+  border-bottom: 1px solid var(--border);
+}
+.policy-n {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--teal);
+  background: rgba(0,201,167,.15);
+  border: 1px solid rgba(0,201,167,.3);
+  border-radius: 3px;
+  padding: 1px 8px;
+  flex-shrink: 0;
+  letter-spacing: .05em;
+}
+.policy-title { font-size: 14px; font-weight: 700; color: var(--text); }
+.policy-body  { padding: 16px 20px; }
+.policy-row {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 6px 16px;
+  margin-bottom: 10px;
+  font-size: 13px;
+  align-items: start;
+}
+.policy-row:last-child { margin-bottom: 0; }
+.policy-label {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-faint);
+  text-align: right;
+  padding-top: 2px;
+  letter-spacing: .04em;
+}
+.policy-val { color: var(--text-muted); }
+.policy-val strong { color: var(--text); }
+.policy-val .tag {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 11px;
+  background: var(--blue-dim);
+  color: var(--blue);
+  border-radius: 3px;
+  padding: 1px 7px;
+  margin: 1px 2px;
+}
+.policy-val .tag.red   { background: var(--red-dim);   color: var(--red); }
+.policy-val .tag.teal  { background: var(--teal-dim);  color: var(--teal); }
+.policy-val .tag.amber { background: var(--amber-dim); color: var(--amber); }
+.policy-divider {
+  grid-column: 1 / -1;
+  height: 1px;
+  background: var(--border-faint);
+  margin: 8px 0;
+}
+.policy-note {
+  grid-column: 1 / -1;
+  font-size: 12px;
+  color: var(--text-faint);
+  font-family: var(--mono);
+  background: var(--bg-raised);
+  border-radius: 4px;
+  padding: 8px 12px;
+  line-height: 1.5;
+}
+
+/* ── KQL BLOCK ── */
+.kql-block {
+  background: #06111d;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin: 14px 0;
+  overflow: hidden;
+}
+:root[data-theme="light"] .kql-block { background: #f0f6ff; }
+.kql-header {
+  padding: 7px 16px;
+  background: var(--bg-raised);
+  border-bottom: 1px solid var(--border);
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--amber);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.kql-header::before {
+  content: 'KQL';
+  font-weight: 800;
+  font-size: 10px;
+  letter-spacing: .08em;
+  background: var(--amber-dim);
+  color: var(--amber);
+  border: 1px solid rgba(245,166,35,.3);
+  border-radius: 3px;
+  padding: 1px 6px;
+}
+.kql-body {
+  padding: 14px 18px;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.7;
+  color: #a9c4eb;
+  overflow-x: auto;
+  white-space: pre;
+}
+:root[data-theme="light"] .kql-body { color: #334155; }
+.k-table  { color: var(--blue); font-weight: 600; }
+.k-op     { color: var(--teal); }
+.k-fn     { color: var(--amber); }
+.k-str    { color: var(--green); }
+.k-cmt    { color: var(--text-faint); font-style: italic; }
+.k-field  { color: #c792ea; }
+
+/* ── IOC LIST ── */
+.ioc-list { list-style: none; margin: 12px 0; }
+.ioc-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-faint);
+  font-size: 13.5px;
+}
+.ioc-list li:last-child { border-bottom: none; }
+.ioc-dot {
+  margin-top: 5px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--amber);
+}
+.ioc-text { color: var(--text); }
+.ioc-sub  { display: block; font-family: var(--mono); font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+/* ── REFERENCE LIST ── */
+.ref-list { list-style: none; margin: 12px 0; display: flex; flex-direction: column; gap: 8px; }
+.ref-list li a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--blue);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 9px 14px;
+  text-decoration: none;
+  transition: border-color .15s;
+}
+.ref-list li a:hover { border-color: var(--blue); }
+.ref-icon { width: 18px; height: 18px; opacity: .6; flex-shrink: 0; }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 768px) {
+  .shell { grid-template-columns: 1fr; }
+  .sidebar { display: none; }
+  main { padding: 24px 20px 60px; }
+  .foci-grid { grid-template-columns: 1fr; }
+  .policy-row { grid-template-columns: 1fr; }
+  .policy-label { text-align: left; }
+  .attack-chain { gap: 6px; }
+  .phase:not(:last-child)::after { display: none; }
+  .phase { margin-right: 0; }
+}
+</style>
+
+<div class="shell">
+  <!-- TOP BAR -->
+  <header class="topbar">
+    <span class="topbar-badge">CONFIDENTIAL</span>
+    <span class="topbar-badge teal">v1.2</span>
+    <span class="topbar-title">FRT Attack Chain — Documentação Técnica & Mitigação</span>
+    <span class="topbar-meta">theotech.net.br · 2026-08-06</span>
+  </header>
+
+  <!-- SIDEBAR NAV -->
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-section">Visão Geral</div>
+    <a href="#sumario">Sumário Executivo</a>
+    <a href="#fundamentos">Fundamentos Técnicos</a>
+    <a href="#fundamentos" class="sub">OAuth 2.0 Device Code</a>
+    <a href="#tokens" class="sub">Hierarquia de Tokens</a>
+    <a href="#foci" class="sub">FOCI Client IDs</a>
+
+    <div class="sidebar-section">Ataque</div>
+    <a href="#attack-chain">Attack Chain</a>
+    <a href="#fase1" class="sub">Fase 1 — Captura</a>
+    <a href="#fase2" class="sub">Fase 2 — Análise FRT</a>
+    <a href="#fase3" class="sub">Fase 3 — Exploração</a>
+    <a href="#fase4" class="sub">Fase 4 — Persistência</a>
+    <a href="#fase5" class="sub">Fase 5 — Escalada</a>
+
+    <div class="sidebar-section">Detecção</div>
+    <a href="#iocs">Indicadores (IoCs)</a>
+    <a href="#kql">Queries KQL</a>
+
+    <div class="sidebar-section">Mitigação</div>
+    <a href="#mitigacao">Conditional Access</a>
+    <a href="#ca001" class="sub">CA001 — Block Device Code</a>
+    <a href="#ca002" class="sub">CA002 — Block Legacy Auth</a>
+    <a href="#ca003" class="sub">CA003 — MFA All Users</a>
+    <a href="#ca004" class="sub">CA004 — Compliant Device</a>
+    <a href="#ca005" class="sub">CA005 — Sign-in Frequency</a>
+    <a href="#ca006" class="sub">CA006 — MFA Admins</a>
+    <a href="#ca007" class="sub">CA007 — Risk-based</a>
+    <a href="#ca008" class="sub">CA008 — App Protection</a>
+    <a href="#ca009" class="sub">CA009 — CAE</a>
+    <a href="#ca010" class="sub">CA010 — FOCI Block</a>
+    <a href="#revogacao">Revogação de Tokens</a>
+
+    <div class="sidebar-section">Referências</div>
+    <a href="#referencias">Docs do Projeto</a>
+  </nav>
+
+  <!-- MAIN -->
+  <main>
+
+    <!-- HERO -->
+    <section>
+      <div class="eyebrow">Documento Técnico · Red Team &amp; Defense · Azure AD / Entra ID</div>
+      <h1>
+        <span class="accent-red">Family Refresh Token</span><br>
+        Attack Chain &amp; <span class="accent-teal">Mitigação</span>
+      </h1>
+
+      <div class="meta-row" style="margin-top:20px">
+        <div class="meta-chip"><span class="dot dot-red"></span>CVSS 9.8 CRITICAL</div>
+        <div class="meta-chip"><span class="dot dot-amber"></span>Microsoft Entra ID / Azure AD</div>
+        <div class="meta-chip"><span class="dot dot-blue"></span>Tenant: theotech.net.br</div>
+        <div class="meta-chip"><span class="dot dot-teal"></span>Autor: Andrew Lobo</div>
+        <div class="meta-chip"><span class="dot dot-green"></span>Versão 1.2 · Ago 2026</div>
+      </div>
+
+      <div class="callout amber">
+        <div class="callout-label">Aviso de Uso</div>
+        Este documento é para uso interno e fins de segurança defensiva. Qualquer teste deve ser realizado exclusivamente sobre ambientes com autorização prévia e escrita.
+      </div>
+    </section>
+
+    <!-- ── 1. SUMÁRIO EXECUTIVO ── -->
+    <section id="sumario">
+      <h2>
+        <span class="section-icon icon-red">⚡</span>
+        Sumário Executivo
+      </h2>
+
+      <p>O <strong>Family Refresh Token (FRT)</strong> é uma vulnerabilidade de design no protocolo OAuth 2.0 implementado pelo Microsoft Entra ID (Azure AD). Ao capturar um único Refresh Token via <strong>Device Code Flow</strong>, um atacante pode obter Access Tokens válidos para qualquer aplicativo dentro da <strong>Family of Client IDs (FOCI)</strong> — incluindo Microsoft Office, Teams, OneDrive, Outlook Mobile e Azure CLI — sem interação adicional do usuário.</p>
+
+      <p>O ataque não explora falha de software: ele abusa de um comportamento <em>by design</em> do mecanismo de token minting. Um FRT capturado via phishing permanece válido por até <strong>90 dias</strong>, dando ao atacante acesso persistente e silencioso ao tenant.</p>
+
+      <div class="callout red">
+        <div class="callout-label">Impacto no ambiente theotech.net.br</div>
+        Com um único token capturado, o FRT Suite demonstrou acesso a: enumeração de usuários e Global Admins, leitura de emails via Exchange, listagem de arquivos OneDrive, acesso a Teams — tudo sem nova autenticação e sem alertas de MFA.
+      </div>
+    </section>
+
+    <!-- ── 2. FUNDAMENTOS TÉCNICOS ── -->
+    <section id="fundamentos">
+      <h2>
+        <span class="section-icon icon-blue">⚙</span>
+        Fundamentos Técnicos
+      </h2>
+
+      <h3 id="tokens">Hierarquia de Tokens</h3>
+      <p>O Entra ID emite cinco tipos de tokens com ciclos de vida e capacidades distintas:</p>
+
+      <div style="overflow-x:auto">
+        <table class="token-table">
+          <thead>
+            <tr>
+              <th>Token</th>
+              <th>Validade</th>
+              <th>Propósito</th>
+              <th>Risco</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Access Token (AT)</td>
+              <td>1 hora</td>
+              <td>Autorizar requisições à API</td>
+              <td>Baixo — expira rápido</td>
+            </tr>
+            <tr>
+              <td>ID Token</td>
+              <td>1 hora</td>
+              <td>Autenticação (OpenID Connect)</td>
+              <td>Baixo</td>
+            </tr>
+            <tr>
+              <td>Refresh Token (RT)</td>
+              <td>90 dias (contínuo)</td>
+              <td>Renovar Access Tokens</td>
+              <td>Médio — por app</td>
+            </tr>
+            <tr class="highlight">
+              <td>Family Refresh Token (FRT)</td>
+              <td>90 dias (contínuo)</td>
+              <td>Renovar AT para <strong>qualquer app FOCI</strong></td>
+              <td><strong>CRÍTICO — cross-app</strong></td>
+            </tr>
+            <tr>
+              <td>Primary Refresh Token (PRT)</td>
+              <td>Até 90 dias</td>
+              <td>SSO em dispositivos registrados no Entra ID</td>
+              <td>Crítico — device-level</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>OAuth 2.0 Device Code Flow</h3>
+      <p>O Device Code Flow (<a href="https://datatracker.ietf.org/doc/html/rfc8628">RFC 8628</a>) foi projetado para autenticar dispositivos sem browser, como smart TVs. A Microsoft o disponibilizou em todos os clients FOCI. O fluxo de phishing explora exatamente este mecanismo:</p>
+
+      <div class="code-block"><span class="c-comment"># 1. Atacante inicia Device Code Flow para o tenant alvo</span>
+POST https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/devicecode
+<span class="c-key">client_id</span>=<span class="c-val">d3590ed6-52b3-4102-aeff-aad2292ab01c</span>  <span class="c-comment"># Microsoft Office</span>
+<span class="c-key">scope</span>=<span class="c-val">offline_access openid profile https://graph.microsoft.com/.default</span>
+
+<span class="c-comment"># Resposta: user_code + verification_uri</span>
+{ "user_code": "G9Z7M", "verification_uri": "https://microsoft.com/devicelogin",
+  "expires_in": 900, "interval": 5 }
+
+<span class="c-comment"># 2. Vítima insere código no link enviado pelo atacante</span>
+<span class="c-comment"># 3. Atacante faz polling e captura o token</span>
+POST https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token
+<span class="c-key">grant_type</span>=<span class="c-val">urn:ietf:params:oauth:grant-type:device_code</span>
+<span class="c-key">device_code</span>=<span class="c-val">{device_code}</span>
+
+<span class="c-comment"># Resposta inclui access_token + refresh_token (FRT)</span></div>
+
+      <h3 id="foci">FOCI — Family of Client IDs</h3>
+      <p>Os apps dentro da FOCI compartilham o mesmo Refresh Token. Um único FRT capturado de qualquer um deles permite obter Access Tokens para todos os outros — <em>token minting sem nova autenticação</em>.</p>
+
+      <div class="foci-grid">
+        <div class="foci-item">
+          <div class="foci-name">Microsoft Office</div>
+          <div class="foci-id">d3590ed6-52b3-4102-aeff-aad2292ab01c</div>
+        </div>
+        <div class="foci-item">
+          <div class="foci-name">Microsoft Teams</div>
+          <div class="foci-id">1fec8e78-bce4-4aaf-ab1b-5451cc387264</div>
+        </div>
+        <div class="foci-item">
+          <div class="foci-name">Azure CLI</div>
+          <div class="foci-id">04b07795-8ddb-461a-bbee-02f9e1bf7b46</div>
+        </div>
+        <div class="foci-item">
+          <div class="foci-name">OneDrive Sync Client</div>
+          <div class="foci-id">ab9b8c07-8f02-4f72-87fa-80105867a763</div>
+        </div>
+        <div class="foci-item">
+          <div class="foci-name">Outlook Mobile</div>
+          <div class="foci-id">27922004-5251-4030-b22d-91ecd9a37ea4</div>
+        </div>
+        <div class="foci-item">
+          <div class="foci-name">Microsoft Authenticator</div>
+          <div class="foci-id">4813382a-8fa7-425e-ab75-3b753aab3abb</div>
+        </div>
+        <div class="foci-item">
+          <div class="foci-name">Microsoft Power BI</div>
+          <div class="foci-id">ea0616a9-dc66-4bd8-b5d7-21e53f4ca7d7</div>
+        </div>
+        <div class="foci-item">
+          <div class="foci-name">Microsoft Intune</div>
+          <div class="foci-id">9ba1a5c7-f17a-4de9-a1f1-6178c8d51223</div>
+        </div>
+      </div>
+
+      <p>Token minting via FRT — sem MFA challenge:</p>
+      <div class="code-block"><span class="c-comment"># Um único RT serve para todos os FOCI clients</span>
+POST https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token
+<span class="c-key">grant_type</span>=<span class="c-val">refresh_token</span>
+<span class="c-key">refresh_token</span>=<span class="c-val">{frt_capturado}</span>
+<span class="c-key">client_id</span>=<span class="c-val">{qualquer_client_foci}</span>   <span class="c-comment"># troca o app, mesmo token funciona</span>
+<span class="c-key">scope</span>=<span class="c-val">offline_access openid profile https://graph.microsoft.com/.default</span></div>
+    </section>
+
+    <!-- ── 3. ATTACK CHAIN ── -->
+    <section id="attack-chain">
+      <h2>
+        <span class="section-icon icon-red">⛓</span>
+        Attack Chain — 5 Fases
+      </h2>
+
+      <div class="attack-chain">
+        <div class="phase">
+          <div class="phase-n">FASE 1</div>
+          <div class="phase-name">Captura</div>
+          <div class="phase-sub">Device Code Flow Phishing</div>
+        </div>
+        <div class="phase">
+          <div class="phase-n">FASE 2</div>
+          <div class="phase-name">Análise FRT</div>
+          <div class="phase-sub">Token Minting / FOCI Expand</div>
+        </div>
+        <div class="phase">
+          <div class="phase-n">FASE 3</div>
+          <div class="phase-name">Exploração</div>
+          <div class="phase-sub">Graph API Enum</div>
+        </div>
+        <div class="phase">
+          <div class="phase-n">FASE 4</div>
+          <div class="phase-name">Persistência</div>
+          <div class="phase-sub">Background Renewal</div>
+        </div>
+        <div class="phase">
+          <div class="phase-n">FASE 5</div>
+          <div class="phase-name">Escalada</div>
+          <div class="phase-sub">Admin Compromise</div>
+        </div>
+      </div>
+
+      <h3 id="fase1">Fase 1 — Captura via Device Code Flow</h3>
+      <p>O atacante envia ao alvo um link + código de 5 dígitos (ex: <code>G9Z7M</code>) sob pretexto legítimo (suporte técnico, renovação de senha, MFA setup). A vítima autentica no portal Microsoft real — sem perceber que está autorizando a sessão do atacante.</p>
+      <p><strong>Implementação:</strong> <code>PhishingModule.device_code_flow_real()</code> — polling automático a cada 5s durante 15 min.</p>
+
+      <div class="callout red">
+        <div class="callout-label">Por que o MFA não protege aqui</div>
+        O Device Code Flow redireciona a vítima ao portal legítimo da Microsoft. A vítima <em>completa o MFA normalmente</em>. O atacante recebe o token com o claim MFA satisfeito, pois a MFA foi feita pela vítima.
+      </div>
+
+      <h3 id="fase2">Fase 2 — Análise FRT e Expansão FOCI</h3>
+      <p>Com o RT capturado, o FRT Analyzer testa cada um dos 8 clients FOCI, fazendo token minting e populando o <strong>Token Vault</strong> com um AT por aplicativo. Esta fase tipicamente resulta em 5–8 clients disponíveis em ambientes sem restrições.</p>
+      <p><strong>Implementação:</strong> <code>FRTAnalyzer.analisar_frt()</code> + <code>TokenVault</code> (persiste ATs por client).</p>
+
+      <h3 id="fase3">Fase 3 — Exploração via Microsoft Graph API</h3>
+      <p>Com ATs válidos para múltiplos apps, o atacante chama a Graph API para reconhecimento:</p>
+      <ul style="margin:10px 0 10px 20px; color:var(--text-muted); font-size:14px; line-height:1.9">
+        <li><code>GET /users</code> — enumeração completa de usuários do tenant (paginação automática)</li>
+        <li><code>GET /directoryRoles/roleTemplateId={roleId}/members</code> — Global Admins, Privileged Role Admins, Security Admins</li>
+        <li><code>GET /me/messages</code> — leitura de emails (últimos 50)</li>
+        <li><code>GET /me/drive/root/children</code> — listagem de arquivos OneDrive</li>
+        <li><code>GET /me/joinedTeams</code> + <code>/channels</code> — estrutura do Microsoft Teams</li>
+      </ul>
+
+      <h3 id="fase4">Fase 4 — Persistência</h3>
+      <p>O <code>BackgroundRenewer</code> é uma daemon thread que verifica a expiração do AT a cada 5 minutos e renova automaticamente 10 minutos antes de expirar. O RT (FRT) se auto-renova a cada uso, reiniciando o contador de 90 dias e garantindo acesso indefinido enquanto não for revogado.</p>
+
+      <h3 id="fase5">Fase 5 — Escalada Lateral</h3>
+      <p>De posse de acesso ao email e Teams, o atacante pode lançar phishing interno mais convincente, comprometer usuários com mais privilégios, e eventualmente atingir Global Admins para escalada total de privilégio no tenant.</p>
+    </section>
+
+    <!-- ── 4. IOCs ── -->
+    <section id="iocs">
+      <h2>
+        <span class="section-icon icon-amber">⚠</span>
+        Indicadores de Comprometimento (IoCs)
+      </h2>
+
+      <ul class="ioc-list">
+        <li>
+          <span class="ioc-dot"></span>
+          <span class="ioc-text">
+            <strong>Device Code Request de IP externo / não corporativo</strong>
+            <span class="ioc-sub">Audit Log → DeviceCodeRequested · Application: Microsoft Office, Azure CLI</span>
+          </span>
+        </li>
+        <li>
+          <span class="ioc-dot"></span>
+          <span class="ioc-text">
+            <strong>Burst de renovações para múltiplos FOCI apps em janela &lt;5 min</strong>
+            <span class="ioc-sub">AADSignInEventsBeta · AppDisplayName IN (Office, Teams, OneDrive, Outlook) · UniqueApps ≥ 3</span>
+          </span>
+        </li>
+        <li>
+          <span class="ioc-dot"></span>
+          <span class="ioc-text">
+            <strong>Token minting: mais de 10 Refresh Tokens emitidos por minuto para um usuário</strong>
+            <span class="ioc-sub">AADTokenIssuedEvents · TokenType == RefreshToken · Count > 10/min</span>
+          </span>
+        </li>
+        <li>
+          <span class="ioc-dot"></span>
+          <span class="ioc-text">
+            <strong>Graph API: leitura em massa de emails (&gt;50 mensagens em 1h)</strong>
+            <span class="ioc-sub">CloudAppEvents · ActionType == Get · ObjectName IN ("messages", "mail")</span>
+          </span>
+        </li>
+        <li>
+          <span class="ioc-dot"></span>
+          <span class="ioc-text">
+            <strong>Enumeration de directoryRoles seguida de acesso a dados sensíveis</strong>
+            <span class="ioc-sub">CloudAppEvents · ObjectName == "directoryRoles" → seguido por acesso a mail/files</span>
+          </span>
+        </li>
+        <li>
+          <span class="ioc-dot"></span>
+          <span class="ioc-text">
+            <strong>Refresh Token persistindo ativo após &gt;30 dias sem uso na UI</strong>
+            <span class="ioc-sub">Token válido mas sem sign-in no portal — indica renovação programática</span>
+          </span>
+        </li>
+        <li>
+          <span class="ioc-dot"></span>
+          <span class="ioc-text">
+            <strong>User-Agent de API / CLI em horário fora do padrão do usuário</strong>
+            <span class="ioc-sub">EvadeModule usa user-agents realistas de apps legítimos — comparar com baseline</span>
+          </span>
+        </li>
+      </ul>
+    </section>
+
+    <!-- ── 5. KQL ── -->
+    <section id="kql">
+      <h2>
+        <span class="section-icon icon-amber">🔍</span>
+        Queries KQL — Microsoft Sentinel / Defender XDR
+      </h2>
+
+      <p>As queries abaixo são derivadas do <code>KQLModule</code> em <code>frt_suite_extensions.py</code>. Deployar no Microsoft Sentinel (Analytics Rules) ou Defender XDR (Advanced Hunting).</p>
+
+      <h3>KQL-01 — Device Code Flow Suspeito</h3>
+      <div class="kql-block">
+        <div class="kql-header">Detecta Device Code Requests acima do volume normal</div>
+        <div class="kql-body"><span class="k-table">CloudAppEvents</span>
+<span class="k-op">| where</span> <span class="k-field">ActionType</span> == <span class="k-str">"DeviceCodeRequested"</span>
+<span class="k-op">| where</span> <span class="k-field">Application</span> <span class="k-fn">in~</span> (<span class="k-str">"Microsoft Office"</span>, <span class="k-str">"Azure CLI"</span>)
+<span class="k-op">| summarize</span> Count = <span class="k-fn">count</span>() <span class="k-op">by</span> <span class="k-field">UserPrincipalName</span>, <span class="k-field">IPAddress</span>
+<span class="k-op">| where</span> Count > 5</div>
+      </div>
+
+      <h3>KQL-02 — FRT Testing / FOCI Expansion</h3>
+      <div class="kql-block">
+        <div class="kql-header">Detecta acesso rápido a múltiplos FOCI apps — sinal de token minting</div>
+        <div class="kql-body"><span class="k-table">CloudAppEvents</span>
+<span class="k-op">| where</span> <span class="k-field">ActionType</span> == <span class="k-str">"AuthorizationAttempted"</span>
+<span class="k-op">| where</span> <span class="k-field">ClientAppUsed</span> <span class="k-fn">in~</span> (
+    <span class="k-str">"Microsoft Office"</span>, <span class="k-str">"Microsoft Teams"</span>,
+    <span class="k-str">"OneDrive"</span>, <span class="k-str">"Outlook Mobile"</span>, <span class="k-str">"Office 365 Management"</span>
+  )
+<span class="k-op">| summarize</span>
+    UniqueApps = <span class="k-fn">dcount</span>(<span class="k-field">ClientAppUsed</span>),
+    Events = <span class="k-fn">count</span>()
+    <span class="k-op">by</span> <span class="k-field">UserPrincipalName</span>, <span class="k-field">IPAddress</span>, <span class="k-fn">bin</span>(<span class="k-field">TimeGenerated</span>, 5m)
+<span class="k-op">| where</span> UniqueApps >= 3</div>
+      </div>
+
+      <h3>KQL-03 — Token Minting em Burst</h3>
+      <div class="kql-block">
+        <div class="kql-header">Detecta emissão anormal de Refresh Tokens para FOCI apps</div>
+        <div class="kql-body"><span class="k-table">AADTokenIssuedEvents</span>
+<span class="k-op">| where</span> <span class="k-field">TimeGenerated</span> > <span class="k-fn">ago</span>(1h)
+<span class="k-op">| where</span> <span class="k-field">ApplicationId</span> <span class="k-fn">in</span> (
+    <span class="k-str">"d3590ed6-52b3-4102-aeff-aad2292ab01c"</span>, <span class="k-cmt">// Microsoft Office</span>
+    <span class="k-str">"1fec8e78-bce4-4aaf-ab1b-5451cc387264"</span>, <span class="k-cmt">// Microsoft Teams</span>
+    <span class="k-str">"ab9b8c07-8f02-4f72-87fa-80105867a763"</span>, <span class="k-cmt">// OneDrive Sync</span>
+    <span class="k-str">"27922004-5251-4030-b22d-91ecd9a37ea4"</span>  <span class="k-cmt">// Outlook Mobile</span>
+  )
+<span class="k-op">| where</span> <span class="k-field">TokenType</span> == <span class="k-str">"RefreshToken"</span>
+<span class="k-op">| summarize</span> TokenCount = <span class="k-fn">count</span>() <span class="k-op">by</span> <span class="k-field">UserPrincipalName</span>, <span class="k-fn">bin</span>(<span class="k-field">TimeGenerated</span>, 1m)
+<span class="k-op">| where</span> TokenCount > 10</div>
+      </div>
+
+      <h3>KQL-04 — Email Enumeration em Massa</h3>
+      <div class="kql-block">
+        <div class="kql-header">Detecta leitura massiva de emails via Graph API</div>
+        <div class="kql-body"><span class="k-table">CloudAppEvents</span>
+<span class="k-op">| where</span> <span class="k-field">ActionType</span> == <span class="k-str">"Get"</span>
+<span class="k-op">| where</span> <span class="k-field">ObjectName</span> <span class="k-fn">in</span> (<span class="k-str">"messages"</span>, <span class="k-str">"mail"</span>)
+<span class="k-op">| where</span> <span class="k-field">TimeGenerated</span> > <span class="k-fn">ago</span>(1h)
+<span class="k-op">| summarize</span>
+    EmailsRead = <span class="k-fn">count</span>(),
+    UniqueIPs = <span class="k-fn">dcount</span>(<span class="k-field">IPAddress</span>)
+    <span class="k-op">by</span> <span class="k-field">UserPrincipalName</span>
+<span class="k-op">| where</span> EmailsRead > 50</div>
+      </div>
+
+      <h3>KQL-05 — Admin Enumeration</h3>
+      <div class="kql-block">
+        <div class="kql-header">Detecta consulta de directoryRoles (típico na Fase 3)</div>
+        <div class="kql-body"><span class="k-table">CloudAppEvents</span>
+<span class="k-op">| where</span> <span class="k-field">ActionType</span> == <span class="k-str">"Get"</span>
+<span class="k-op">| where</span> <span class="k-field">ObjectName</span> == <span class="k-str">"directoryRoles"</span>
+<span class="k-op">| where</span> <span class="k-field">RawEventData</span> <span class="k-fn">contains</span> <span class="k-str">"Global Administrator"</span>
+<span class="k-op">| where</span> <span class="k-field">TimeGenerated</span> > <span class="k-fn">ago</span>(1h)
+<span class="k-op">| summarize</span> Events = <span class="k-fn">count</span>() <span class="k-op">by</span> <span class="k-field">UserPrincipalName</span>, <span class="k-field">IPAddress</span>
+<span class="k-op">| where</span> Events > 1</div>
+      </div>
+    </section>
+
+    <!-- ── 6. MITIGAÇÃO ── -->
+    <section id="mitigacao">
+      <h2>
+        <span class="section-icon icon-teal">🛡</span>
+        Mitigação — Conditional Access Policies
+      </h2>
+
+      <p>A defesa mais efetiva contra FRT attacks é uma stack de <strong>10 políticas de Conditional Access</strong> no Microsoft Entra ID. Aplicadas em conjunto, elas eliminam o vetor de captura, restringem o token minting cross-app e limitam o raio de blast de um token comprometido.</p>
+
+      <div class="callout teal">
+        <div class="callout-label">Ordem de implementação recomendada</div>
+        Implementar na sequência CA001 → CA002 → CA003 → CA006 primeiro (impacto imediato no vetor de ataque). CA004, CA005 e CA010 em seguida. CA007, CA008, CA009 como hardening adicional.
+      </div>
+
+      <!-- CA001 -->
+      <div class="policy-card" id="ca001">
+        <div class="policy-header">
+          <span class="policy-n">CA001</span>
+          <span class="policy-title">Block Device Code Flow</span>
+        </div>
+        <div class="policy-body">
+          <div class="policy-row">
+            <div class="policy-label">Impacto</div>
+            <div class="policy-val"><strong style="color:var(--red)">Elimina o vetor primário de captura</strong> — corta a Fase 1 do ataque.</div>
+          </div>
+          <div class="policy-row">
+            <div class="policy-label">Usuários</div>
+            <div class="policy-val"><span class="tag teal">All users</span> <span class="tag">Excluir: break-glass accounts</span></div>
+          </div>
+          <div class="policy-row">
+            <div class="policy-label">Cloud apps</div>
+            <div class="policy-val"><span class="tag">All cloud apps</span></div>
+          </div>
+          <div class="policy-row">
+            <div class="policy-label">Conditions</div>
+            <div class="policy-val"><strong>Authentication flows</strong> → <span class="tag red">Device code flow ✓</span></div>
+          </div>
+          <div class="policy-row">
+            <div class="policy-label">Grant</div>
+            <div class="policy-val"><span class="tag red">Block access</span></div>
+          </div>
+          <div class="policy-row">
+            <div class="policy-divider"></div>
+          </div>
+          <div class="policy-row">
+            <div class="policy-note">⚠ Verificar antes de ativar: printers, IoT devices e scripts legados de CI/CD que usam Device Code Flow serão bloqueados. Identificar e migrar para Client Credentials Flow ou Managed Identity antes da ativação.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CA002 -->
+      <div class="policy-card" id="ca002">
+        <div class="policy-header">
+          <span class="policy-n">CA002</span>
+          <span class="policy-title">Block Legacy Authentication</span>
+        </div>
+        <div class="policy-body">
+          <div class="policy-row">
+            <div class="policy-label">Impacto</div>
+            <div class="policy-val">Bloqueia clients que não suportam MFA — baseline obrigatório.</div>
+          </div>
+          <div class="policy-row">
+            <div class="policy-label">Usuários</div>
+            <div class="policy-val"><span class="tag teal">All users</span></div>
+          </div>
+          <div class="policy-row">
+            <div class="policy-label">Cloud apps</div>
+            <div class="policy-val"><span class="tag">All cloud apps</span></div>
+          </div>
+          <div class="policy-row">
+            <div class="policy-label">Client apps</div>
+            <div class="policy-val"><span class="tag red">Exchange ActiveSync clients</span> <span class="tag red">Other clients</span></div>
+          </div>
+          <div class="policy-row">
+            <div class="policy-label">Grant</div>
+            <div class="policy-val"><span class="tag red">Block access</span></div>
+          </div>
+          <div class="policy-row">
+            <div class="policy-divider"></div>
+          </div>
+          <div class="policy-row">
+            <div class="policy-note">Monitorar por 14 dias com Report-only mode antes de ativar. Focar em "Other clients" — confirmar que não há automações usando SMTP/IMAP/POP3.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CA003 -->
+      <div class="policy-card" id="ca003">
+        <div class="policy-header">
+          <span class="policy-n">CA003</span>
+          <span class="policy-title">Require MFA — All Users</span>
+        </div>
+        <div class="policy-body">
+          <div class="policy-row">
+            <div class="policy-label">Impacto</div>
+            <div class="policy-val">Garante que um token capturado não seja o único fator — dificulta uso em novos contextos.</div>
+          </div>
+          <div class="policy-row">
+            <div class="policy-label">Usuários</div>
+            <div class="policy-val"><span class="tag teal">All users</span> <span class="tag">Excluir: break-glass, service principals</span></div>
+          </div>
+          <div class="policy-row">
+            <div class="policy-label">Cloud apps</div>
+            <div class="policy-val"><span class="tag">All cloud apps</span></div>
+          </div>
+          <div class="policy-row">
+            <div class="policy-label">Grant</div>
+            <div class="policy-val"><span class="tag teal">Require multi-factor authentication</span></div>
+          </div>
+          <div class="policy-row">
+            <div class="policy-divider"></div>
+          </div>
+          <div class="policy-row">
+            <div class="policy-note">Não mitiga completamente FRT (o MFA é satisfeito pela vítima no phishing inicial), mas eleva o custo de novos logins em devices desconhecidos. Combinado com CA005 (sign-in frequency), força re-auth MFA periódica.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CA004 -->
+      <div class="policy-card" id="ca004">
+        <div class="policy-header">
+          <span class="policy-n">CA004</span>
+          <span class="policy-title">Require Compliant or Hybrid AAD-Joined Device</span>
+        </div>
+        <div class="policy-body">
+          <div class="policy-row">
+            <div class="policy-label">Impacto</div>
+            <div class="policy-val"><strong>Bloqueia tokens usados de máquinas fora do controle corporativo</strong> — ataque a partir de máquina do atacante falha.</div>
+          </div>
+          <div class="policy-row">
+            <div class="policy-label">Usuários</div>
+            <div class="policy-val"><span class="tag teal">All users</span></div>
+          </div>
+          <div class="policy-row">
+            <div class="policy-label">Cloud apps</div>
+            <div class="policy-val"><span class="tag">Microsoft 365</span> <span class="tag">Exchange Online</span> <span class="tag">SharePoint Online</span></div>
+          </div>
+          <div class="policy-row">
+            <div class="policy-label">Platforms</div>
+            <div class="policy-val"><span class="tag">Windows</span> <span class="tag">macOS</span></div>
+          </div>
+          <div class="policy-row">
+            <div class="policy-label">Grant</div>
+            <div class="policy-val"><span class="tag teal">Require device to be marked as compliant</span> <strong>OR</strong> <span class="tag teal">Require hybrid Azure AD joined device</span></div>
+          </div>
+          <div class="policy-row">
+            <div class="policy-divider"></div>
+          </div>
+          <div class="policy-row">
+            <div class="policy-note">Requer Microsoft Intune configurado. Esta política é a mais efetiva contra FRT attacks remotos: mesmo com token válido, a requisição de um device não-gerenciado será bloqueada na validação de Conditional Access.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CA005 -->
+      <div class="policy-card" id="ca005">
+        <div class="policy-header">
+          <span class="policy-n">CA005</span>
+          <span class="policy-title">Sign-in Frequency &amp; Session Controls</span>
+        </div>
+        <div class="policy-body">
+          <div class="policy-row">
+            <div class="policy-label">Impacto</div>
+            <div class="policy-val">Reduz a janela de persistência do token capturado. FRT com 90 dias → sessão limitada a 1h para apps críticos.</div>
+          </div>
+          <div class="policy-row">
+            <div class="policy-label">Usuários</div>
+            <div class="policy-val"><span class="tag teal">All users</span></div>
+          </div>
+          <div class="policy-row">
+            <div class="policy-label">Cloud apps</div>
+            <div class="policy-val"><span class="tag">Exchange Online</span> <span class="tag">SharePoint Online</span> <span class="tag">Microsoft Teams</span></div>
+          </div>
+          <div class="policy-row">
+            <div class="policy-label">Session</div>
+            <div class="policy-val">
+              <strong>Sign-in frequency:</strong> <span class="tag amber">1 hour</span> (ou "Every time" para admins)<br>
+              <strong>Persistent browser session:</strong> <span class="tag red">Never persistent</span>
+            </div>
+          </div>
+          <div class="policy-row">
+            <div class="policy-divider"></div>
+          </div>
+          <div class="policy-row">
+            <div class="policy-note">Para Global Admins e Privileged Role Admins, usar "Every time" em sign-in frequency para forçar re-auth a cada sessão. Balancear com produtividade: 1h é agressivo para usuários comuns — considerar 4h–8h para workforce geral.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CA006 -->
+      <div class="policy-card" id="ca006">
+        <div class="policy-header">
+          <span class="policy-n">CA006</span>
+          <span class="policy-title">MFA Obrigatório — Funções Administrativas</span>
+        </div>
+        <div class="policy-body">
+          <div class="policy-row">
+            <div class="policy-label">Impacto</div>
+            <div class="policy-val">Protege os alvos de alto valor da Fase 5 (escalada a admins).</div>
+          </div>
+          <div class="policy-row">
+            <div class="policy-label">Usuários</div>
+            <div class="policy-val">
+              <span class="tag red">Global Administrator</span>
+              <span class="tag red">Privileged Role Administrator</span>
+              <span class="tag red">Security Administrator</span>
+              <span class="tag">SharePoint Administrator</span>
+              <span class="tag">Application Administrator</span>
+              <span class="tag">Exchange Administrator</span>
+            </div>
+          </div>
+          <div class="policy-row">
+            <div class="policy-label">Cloud apps</div>
+            <div class="policy-val"><span class="tag">All cloud apps</span></div>
+          </div>
+          <div class="policy-row">
+            <div class="policy-label">Grant</div>
+            <div class="policy-val"><span class="tag teal">Require multi-factor authentication</span> <span class="tag teal">Require compliant device</span></div>
+          </div>
+          <div class="policy-row">
+            <div class="policy-label">Session</div>
+            <div class="policy-val"><span class="tag amber">Sign-in frequency: Every time</span></div>
+          </div>
+          <div class="policy-row">
+            <div class="policy-divider"></div>
+          </div>
+          <div class="policy-row">
+            <div class="policy-note">Role IDs para referência: Global Admin = 62e90394-69f5-4237-9190-012177145e10 · Privileged Role Admin = e8611ab8-c189-46e8-94e1-60213ab1f814 · Security Admin = 194ae4cb-b126-40b2-bd5b-6091b380977d</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CA007 -->
+      <div class="policy-card" id="ca007">
+        <div class="policy-header">
+          <span class="policy-n">CA007</span>
+          <span class="policy-title">Risk-Based Policy — Sign-in Risk (Identity Protection)</span>
+        </div>
+        <div class="policy-body">
+          <div class="policy-row">
+            <div class="policy-label">Impacto</div>
+            <div class="policy-val">Detecta anomalias de sign-in (IP anônimo, impossible travel) e exige re-auth ou bloqueia automaticamente.</div>
+          </div>
+          <div class="policy-row">
+            <div class="policy-label">Requisito</div>
+            <div class="policy-val"><span class="tag amber">Microsoft Entra ID P2</span></div>
+          </div>
+          <div class="policy-row">
+            <div class="policy-label">Usuários</div>
+            <div class="policy-val"><span class="tag teal">All users</span></div>
+          </div>
+          <div class="policy-row">
+            <div class="policy-label">Sign-in risk</div>
+            <div class="policy-val"><span class="tag red">High</span> → Block · <span class="tag amber">Medium</span> → Require MFA</div>
+          </div>
+          <div class="policy-row">
+            <div class="policy-label">User risk</div>
+            <div class="policy-val"><span class="tag red">High</span> → Require password change + MFA</div>
+          </div>
+          <div class="policy-row">
+            <div class="policy-divider"></div>
+          </div>
+          <div class="policy-row">
+            <div class="policy-note">FRT attacks via IP de datacenter externo tipicamente disparam risk score "High". Combinar com Named Locations (endereços corporativos no Brasil) para reduzir falsos positivos.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CA008 -->
+      <div class="policy-card" id="ca008">
+        <div class="policy-header">
+          <span class="policy-n">CA008</span>
+          <span class="policy-title">Require App Protection Policy (Mobile)</span>
+        </div>
+        <div class="policy-body">
+          <div class="policy-row">
+            <div class="policy-label">Impacto</div>
+            <div class="policy-val">Garante que acesso mobile só ocorra via apps gerenciados pelo Intune — bloqueia uso do token em apps customizados ou curl.</div>
+          </div>
+          <div class="policy-row">
+            <div class="policy-label">Usuários</div>
+            <div class="policy-val"><span class="tag teal">All users</span></div>
+          </div>
+          <div class="policy-row">
+            <div class="policy-label">Cloud apps</div>
+            <div class="policy-val"><span class="tag">Exchange Online</span> <span class="tag">SharePoint Online</span></div>
+          </div>
+          <div class="policy-row">
+            <div class="policy-label">Platforms</div>
+            <div class="policy-val"><span class="tag">Android</span> <span class="tag">iOS</span></div>
+          </div>
+          <div class="policy-row">
+            <div class="policy-label">Grant</div>
+            <div class="policy-val"><span class="tag teal">Require approved client app</span> <span class="tag teal">Require app protection policy</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CA009 -->
+      <div class="policy-card" id="ca009">
+        <div class="policy-header">
+          <span class="policy-n">CA009</span>
+          <span class="policy-title">Continuous Access Evaluation (CAE)</span>
+        </div>
+        <div class="policy-body">
+          <div class="policy-row">
+            <div class="policy-label">Impacto</div>
+            <div class="policy-val"><strong>Revoga tokens em near-real-time</strong> quando detecta mudança de risco (usuário desabilitado, IP alterado, password reset). FRT comprometido perde validade em &lt;1 min ao invés de 1h.</div>
+          </div>
+          <div class="policy-row">
+            <div class="policy-label">Cloud apps</div>
+            <div class="policy-val"><span class="tag">Exchange Online</span> <span class="tag">SharePoint Online</span> <span class="tag">Teams</span> <span class="tag">Microsoft Graph</span></div>
+          </div>
+          <div class="policy-row">
+            <div class="policy-label">Session</div>
+            <div class="policy-val"><span class="tag teal">Customize continuous access evaluation: Enabled</span></div>
+          </div>
+          <div class="policy-row">
+            <div class="policy-divider"></div>
+          </div>
+          <div class="policy-row">
+            <div class="policy-note">CAE é a defesa mais efetiva contra tokens roubados em uso: ao detectar localização suspeita ou revogação administrativa, o CAE invalida o token imediatamente no lado do resource server — sem precisar esperar o AT expirar naturalmente.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CA010 -->
+      <div class="policy-card" id="ca010">
+        <div class="policy-header">
+          <span class="policy-n">CA010</span>
+          <span class="policy-title">Restrict FOCI Applications — Require Compliant Device</span>
+        </div>
+        <div class="policy-body">
+          <div class="policy-row">
+            <div class="policy-label">Impacto</div>
+            <div class="policy-val">Aplica controles específicos sobre os client IDs da FOCI — qualquer uso requer device compliance, tornando token minting de máquina externa ineficaz.</div>
+          </div>
+          <div class="policy-row">
+            <div class="policy-label">Usuários</div>
+            <div class="policy-val"><span class="tag teal">All users</span></div>
+          </div>
+          <div class="policy-row">
+            <div class="policy-label">Cloud apps</div>
+            <div class="policy-val">
+              <span class="tag red">d3590ed6 (Office)</span>
+              <span class="tag red">1fec8e78 (Teams)</span>
+              <span class="tag red">ab9b8c07 (OneDrive)</span>
+              <span class="tag red">27922004 (Outlook Mobile)</span>
+              <span class="tag red">04b07795 (Azure CLI)</span>
+            </div>
+          </div>
+          <div class="policy-row">
+            <div class="policy-label">Grant</div>
+            <div class="policy-val"><span class="tag teal">Require compliant device</span> + <span class="tag teal">Require MFA</span></div>
+          </div>
+          <div class="policy-row">
+            <div class="policy-divider"></div>
+          </div>
+          <div class="policy-row">
+            <div class="policy-note">Apps FOCI são adicionados como "Specific apps" em Cloud apps. Verificar IDs exatos no Entra ID → Enterprise Applications → procurar pelo nome. Esta política complementa CA004 com granularidade por app.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── REVOGAÇÃO ── -->
+    <section id="revogacao">
+      <h2>
+        <span class="section-icon icon-red">🔄</span>
+        Revogação de Tokens — Resposta a Incidente
+      </h2>
+
+      <p>Quando um comprometimento FRT é confirmado, a revogação deve ser imediata. O BackgroundRenewer da suite monitora a cada 5 min — a janela de ação é estreita.</p>
+
+      <h3>Via Portal Entra ID (imediato)</h3>
+      <div class="callout blue">
+        <div class="callout-label">Sequência</div>
+        <strong>Entra ID</strong> → Users → [Usuário afetado] → Authentication methods → <strong>Revoke MFA sessions</strong><br>
+        Em seguida: Users → [Usuário] → <strong>Revoke sessions</strong>
+      </div>
+
+      <h3>Via PowerShell (automatizável, recomendado para IR)</h3>
+      <div class="code-header">PowerShell · Microsoft Graph SDK</div>
+      <div class="code-block"><span class="c-comment"># 1. Conectar ao Graph</span>
+<span class="c-kw">Connect-MgGraph</span> -Scopes <span class="c-str">"User.ReadWrite.All"</span>, <span class="c-str">"Directory.ReadWrite.All"</span>
+
+<span class="c-comment"># 2. Revogar todos os refresh tokens do usuário</span>
+<span class="c-kw">Revoke-MgUserSignInSession</span> -UserId <span class="c-str">"andrew.testes@theotech.net.br"</span>
+
+<span class="c-comment"># 3. Confirmar revogação</span>
+<span class="c-kw">Get-MgUser</span> -UserId <span class="c-str">"andrew.testes@theotech.net.br"</span> `
+    -Property <span class="c-str">"SignInSessionsValidFromDateTime"</span> | <span class="c-kw">Select</span> SignInSessionsValidFromDateTime
+
+<span class="c-comment"># 4. Resetar senha (forçar logout de todas as sessões)</span>
+<span class="c-kw">Update-MgUser</span> -UserId <span class="c-str">"andrew.testes@theotech.net.br"</span> `
+    -PasswordProfile @{<span class="c-key">ForceChangePasswordNextSignIn</span>=<span class="c-val">$true</span>; <span class="c-key">Password</span>=<span class="c-str">"[nova-senha]"</span>}
+
+<span class="c-comment"># 5. Verificar apps com permissões delegadas (possível backdoor)</span>
+<span class="c-kw">Get-MgUserOauth2PermissionGrant</span> -UserId <span class="c-str">"andrew.testes@theotech.net.br"</span></div>
+
+      <h3>Checklist Pós-Revogação</h3>
+      <ul class="ioc-list">
+        <li><span class="ioc-dot" style="background:var(--teal)"></span><span class="ioc-text">Revogar sessões e MFA sessions no Entra ID<span class="ioc-sub">Entra ID → Users → Revoke sessions + Revoke MFA sessions</span></span></li>
+        <li><span class="ioc-dot" style="background:var(--teal)"></span><span class="ioc-text">Resetar senha e reregistrar MFA<span class="ioc-sub">Forçar re-registro via Authentication methods policy</span></span></li>
+        <li><span class="ioc-dot" style="background:var(--teal)"></span><span class="ioc-text">Auditar app permissions delegadas<span class="ioc-sub">Verificar se o atacante registrou um app com permissões persistentes</span></span></li>
+        <li><span class="ioc-dot" style="background:var(--teal)"></span><span class="ioc-text">Revisar Sign-in Logs das últimas 90 dias<span class="ioc-sub">Entra ID → Sign-in logs → filtrar por usuário comprometido</span></span></li>
+        <li><span class="ioc-dot" style="background:var(--teal)"></span><span class="ioc-text">Verificar emails e calendário enviados<span class="ioc-sub">Exchange Admin Center → Message trace nos últimos 30 dias</span></span></li>
+        <li><span class="ioc-dot" style="background:var(--teal)"></span><span class="ioc-text">Checar se há novos dispositivos registrados<span class="ioc-sub">Entra ID → Devices → filtrar por RegisteredOwner do usuário afetado</span></span></li>
+      </ul>
+    </section>
+
+    <!-- ── REFERÊNCIAS ── -->
+    <section id="referencias">
+      <h2>
+        <span class="section-icon icon-blue">📂</span>
+        Referências do Projeto
+      </h2>
+
+      <p>Esta documentação integra e consolida os seguintes arquivos do FRT Red Team Suite:</p>
+
+      <ul class="ref-list">
+        <li>
+          <a href="#">
+            <svg class="ref-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            frt_red_team_suite.py — Engine principal: TokenManager, PhishingModule, FRTAnalyzer, ExploitationModule, PersistenceModule (1500+ linhas)
+          </a>
+        </li>
+        <li>
+          <a href="#">
+            <svg class="ref-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            frt_suite_extensions.py — Módulos adicionais: KQLModule (5 queries), EmailModule, TeamsModule, EvadeModule, ReportModule (700+ linhas)
+          </a>
+        </li>
+        <li>
+          <a href="#">
+            <svg class="ref-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            README_FRT_SUITE.md — Documentação operacional: instalação, menu, troubleshooting
+          </a>
+        </li>
+        <li>
+          <a href="#">
+            <svg class="ref-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            INDICE_COMPLETO.md — Mapa de todos os arquivos do projeto, guias por perfil
+          </a>
+        </li>
+        <li>
+          <a href="#">
+            <svg class="ref-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            exemplos_praticos_frt_suite.py — 10 cenários de uso: automação, Teams enum, evasão, relatório
+          </a>
+        </li>
+        <li>
+          <a href="#">
+            <svg class="ref-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            config_advanced.py — 4 profiles pré-configurados: stealth, aggressive, defensive, research
+          </a>
+        </li>
+      </ul>
+
+      <h3>Referências Externas</h3>
+      <ul class="ref-list">
+        <li><a href="#">RFC 8628 — OAuth 2.0 Device Authorization Grant (IETF)</a></li>
+        <li><a href="#">Microsoft Docs — Continuous access evaluation in Microsoft Entra ID</a></li>
+        <li><a href="#">Microsoft Docs — Conditional Access: Authentication flows</a></li>
+        <li><a href="#">Secureworks — Original FRT Research (Family Refresh Token)</a></li>
+        <li><a href="#">MITRE ATT&CK — T1528: Steal Application Access Token</a></li>
+      </ul>
+
+      <div style="margin-top:48px; padding-top:24px; border-top:1px solid var(--border-faint); font-family:var(--mono); font-size:11px; color:var(--text-faint); line-height:2">
+        Documento gerado por Andrew Lobo · Red Team &amp; Security · theotech.net.br<br>
+        Versão 1.2 · 2026-08-06 · Uso interno e autorizado<br>
+        Baseado em FRT Red Team Suite v1.2 · python frt_red_team_suite.py
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+// Active sidebar link on scroll
+const sections = document.querySelectorAll('section[id], div[id]');
+const links = document.querySelectorAll('.sidebar a');
+
+const obs = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      const id = e.target.id;
+      links.forEach(l => {
+        l.classList.toggle('active', l.getAttribute('href') === '#' + id);
+      });
+    }
+  });
+}, { rootMargin: '-20% 0px -70% 0px' });
+
+sections.forEach(s => obs.observe(s));
+</script>
